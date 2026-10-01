@@ -1,0 +1,9 @@
+schema: omega.feature-spec/v1
+name: atr_pct_5m_14
+version: 1
+inputs:
+  representation: candles
+  bar: 5m
+kernel: atr_pct
+params:
+  window: 14

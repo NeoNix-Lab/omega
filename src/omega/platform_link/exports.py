@@ -16,6 +16,11 @@ PLATFORM_SYMBOLS: dict[str, str] = {
     "LifecyclePolicy": "quant_platform.access",
     "DatasetIdentity": "quant_platform.data.models",
     "Instant": "quant_platform.data.models",
+    "TradeRecord": "quant_platform.data.models",
+    "InvalidRequest": "quant_platform.data.models",
+    # Candle representation (D03/D04): Omega reuses the platform's incremental aggregation
+    "IncrementalCandleBuilder": "quant_platform.representation.candles",
+    "aggregate_historical_candles": "quant_platform.representation.candles",
     # Replay
     "HistoricalReplayRuntime": "quant_platform.replay",
     "ReplaySpec": "quant_platform.replay",

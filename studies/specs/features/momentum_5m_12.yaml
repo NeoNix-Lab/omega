@@ -1,0 +1,9 @@
+schema: omega.feature-spec/v1
+name: momentum_5m_12
+version: 1
+inputs:
+  representation: candles
+  bar: 5m
+kernel: price_momentum
+params:
+  window: 12

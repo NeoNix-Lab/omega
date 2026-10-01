@@ -1,0 +1,8 @@
+schema: omega.feature-spec/v1
+name: imbalance_ratio_500
+version: 1
+inputs:
+  representation: trades
+kernel: imbalance_ratio
+params:
+  window: 500

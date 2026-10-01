@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from .. import platform_link as qp
+from .kernels import KernelDef, KernelError, get_kernel, list_kernels, register_kernel
+from .provider import CompiledFeatureProvider, compile_feature_provider
+from .spec import FeatureSpec, FeatureSpecError, load_feature_spec, parse_feature_spec, parse_feature_spec_text
 
 
 def list_canonical_features() -> list[dict[str, Any]]:
@@ -51,4 +54,20 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["list_canonical_features", "CandleDefinitionV1", "FootprintDefinitionV1"]
+__all__ = [
+    "CandleDefinitionV1",
+    "CompiledFeatureProvider",
+    "FeatureSpec",
+    "FeatureSpecError",
+    "FootprintDefinitionV1",
+    "KernelDef",
+    "KernelError",
+    "compile_feature_provider",
+    "get_kernel",
+    "list_canonical_features",
+    "list_kernels",
+    "load_feature_spec",
+    "parse_feature_spec",
+    "parse_feature_spec_text",
+    "register_kernel",
+]
