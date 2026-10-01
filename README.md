@@ -72,14 +72,51 @@ Omega includes an integrated command-line orchestrator that drives model trainin
 # 1. Inspect environment, quant-platform link, git revision, and artifact storage
 python omega.py status
 
-# 2. Launch a causal alpha training run (with walk-forward CV and DSR evaluation)
-python omega.py train --name btc_orderflow_alpha --lookback 30 --horizon 5
+# 2. List available derived features in the Feature Hub
+python omega.py features list
 
-# 3. View the ranked leaderboard of all tracked experiments
+# 3. List available alpha strategies in the Strategy Hub
+python omega.py strategies list
+
+# 4. Launch a causal alpha training run selecting specific features
+python omega.py train --name btc_alpha --features cvd_zscore,rsi,realized_vol --horizon 5
+
+# 5. Simulate a strategy replay with portfolio accounting
+python omega.py replay --strategy volatility_breakout --capital 10000
+
+# 6. View the ranked leaderboard of all tracked experiments
 python omega.py leaderboard --sort-by dsr
 
-# 4. Inspect full JSON provenance and metrics for a specific run
-python omega.py inspect run_20261001_075735_btc_imbalance_momentum
+# 7. Inspect full JSON provenance and metrics for a specific run
+python omega.py inspect run_20261001_093514_custom_derived_features
+```
+
+---
+
+## 🧩 Adding Custom Features & Strategies
+
+### 1. Register a Derived Feature (in `src/omega/features/`)
+```python
+from omega.features.registry import register_feature
+import pandas as pd
+
+@register_feature(name="my_indicator", description="Custom price ratio", required_columns=("close",))
+def compute_my_indicator(df: pd.DataFrame, window: int = 14) -> pd.Series:
+    return (df["close"] / df["close"].rolling(window).mean() - 1.0).fillna(0.0)
+```
+
+### 2. Register a Strategy (in `src/omega/strategies/`)
+```python
+from omega.strategies.base import BaseStrategy, SignalDecision
+from omega.strategies.registry import register_strategy
+import pandas as pd
+
+@register_strategy(name="my_strategy", description="Simple threshold strategy")
+class MyStrategy(BaseStrategy):
+    def generate_signal(self, row: pd.Series, context: dict) -> SignalDecision:
+        if row.get("feat_my_indicator", 0.0) > 0.02:
+            return SignalDecision.LONG(stop_loss=0.01, take_profit=0.02)
+        return SignalDecision.HOLD()
 ```
 
 ---

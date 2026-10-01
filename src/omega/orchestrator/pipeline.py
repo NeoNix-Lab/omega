@@ -1,13 +1,12 @@
 """Alpha Training Pipeline and Model Fitting Orchestrator.
 
-Orchestrates causal feature extraction, temporal walk-forward folds, model fitting,
-out-of-sample evaluation, and artifact sealing with experiment registration.
+Orchestrates causal feature extraction from the Feature Hub, temporal walk-forward folds,
+model fitting, out-of-sample evaluation, strategy replays, and artifact sealing.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import json
 import math
 from pathlib import Path
 import pickle
@@ -16,6 +15,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from ..features import apply_features
+from ..strategies import get_strategy
 from ..tracking import ExperimentRegistry, RunRecord, get_git_provenance, save_model_artifact
 
 
@@ -24,14 +25,21 @@ def generate_synthetic_market_data(
     base_price: float = 60000.0,
     seed: int = 42,
 ) -> pd.DataFrame:
-    """Generate reproducible order flow bars with price, buy/sell volumes, and delta."""
+    """Generate reproducible OHLCV order flow bars with realistic volatility."""
     np.random.seed(seed)
     returns = np.random.normal(loc=0.0001, scale=0.002, size=n_bars)
-    prices = base_price * np.exp(np.cumsum(returns))
+    close_prices = base_price * np.exp(np.cumsum(returns))
 
-    # Volumes and aggressor imbalance
+    # Construct coherent OHLC from close prices
+    intrabar_disp = np.random.exponential(scale=15.0, size=n_bars)
+    high_prices = close_prices + intrabar_disp + np.random.uniform(2.0, 10.0, size=n_bars)
+    low_prices = close_prices - intrabar_disp - np.random.uniform(2.0, 10.0, size=n_bars)
+    open_prices = np.roll(close_prices, 1)
+    open_prices[0] = base_price
+
+    # Order flow volume and delta
     buy_vol = np.random.exponential(scale=10.0, size=n_bars)
-    # Give slight positive drift to buy volume when return is positive (synthetic microstructural correlation)
+    # Drift buy volume with returns (microstructural correlation)
     buy_vol += np.maximum(0, returns * 5000.0)
     sell_vol = np.random.exponential(scale=10.0, size=n_bars)
     delta = buy_vol - sell_vol
@@ -40,30 +48,14 @@ def generate_synthetic_market_data(
 
     return pd.DataFrame({
         "timestamp": timestamps,
-        "close": prices,
+        "open": open_prices,
+        "high": high_prices,
+        "low": low_prices,
+        "close": close_prices,
         "buy_volume": buy_vol,
         "sell_volume": sell_vol,
         "delta": delta,
     })
-
-
-def compute_features(df: pd.DataFrame, lookback: int = 20) -> pd.DataFrame:
-    """Compute causal rolling microstructural features."""
-    feat_df = df.copy()
-
-    # 1. Rolling Cumulative Delta (Z-Score normalized)
-    roll_delta = feat_df["delta"].rolling(lookback).sum()
-    roll_std = feat_df["delta"].rolling(lookback).std().replace(0, np.nan)
-    feat_df["feature_norm_delta"] = (roll_delta / roll_std).fillna(0.0)
-
-    # 2. Volume Imbalance Ratio: (Buy - Sell) / (Buy + Sell)
-    total_vol = feat_df["buy_volume"] + feat_df["sell_volume"]
-    feat_df["feature_imbalance_ratio"] = (feat_df["delta"] / total_vol.replace(0, np.nan)).fillna(0.0)
-
-    # 3. Short-term Price Momentum
-    feat_df["feature_momentum"] = (feat_df["close"].pct_change(5)).fillna(0.0)
-
-    return feat_df
 
 
 def compute_deflated_sharpe_ratio(
@@ -77,24 +69,21 @@ def compute_deflated_sharpe_ratio(
     if sample_length <= 1 or sharpe <= 0:
         return 0.0
 
-    # Expected maximum Sharpe under null hypothesis (Euler-Mascheroni approximation)
     gamma = 0.5772156649
     if n_trials > 1:
         e_max_sharpe = (1.0 - gamma) * math.sqrt(2.0 * math.log(n_trials)) + (gamma / math.sqrt(2.0 * math.log(n_trials)))
     else:
         e_max_sharpe = 0.0
 
-    # Variance of Sharpe estimate with non-normal returns
     var_sharpe = (1.0 - skewness * sharpe + ((kurtosis - 1.0) / 4.0) * (sharpe**2)) / sample_length
     std_sharpe = math.sqrt(max(1e-6, var_sharpe))
 
     dsr = (sharpe - e_max_sharpe) / std_sharpe
-    # Return as an annualized-equivalent confidence score or normalized z-score
     return round(float(dsr), 4)
 
 
 class LinearCentroidClassifier:
-    """Simple deterministic classifier mapping features to directional probabilities."""
+    """Deterministic classifier mapping features to directional trade probabilities."""
 
     def __init__(self) -> None:
         self.weights: np.ndarray | None = None
@@ -129,15 +118,18 @@ class LinearCentroidClassifier:
 def execute_training_run(
     name: str = "orderflow_alpha",
     model_type: str = "centroid_classifier",
-    lookback: int = 20,
+    feature_names: list[str] | str = "cvd_zscore,imbalance_ratio,price_momentum",
     horizon: int = 5,
     folds: int = 3,
     seed: int = 42,
     registry: ExperimentRegistry | None = None,
 ) -> RunRecord:
-    """Execute end-to-end alpha training with walk-forward CV and experiment registration."""
+    """Execute end-to-end alpha training using pluggable features from the Feature Hub."""
     if registry is None:
         registry = ExperimentRegistry()
+
+    if isinstance(feature_names, str):
+        feature_names = [f.strip() for f in feature_names.split(",") if f.strip()]
 
     run_timestamp = datetime.now(timezone.utc).isoformat()
     run_id = f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{name}"
@@ -145,20 +137,19 @@ def execute_training_run(
     # 1. Acquire Data (Deterministic synthetic baseline)
     df = generate_synthetic_market_data(n_bars=1500, seed=seed)
 
-    # 2. Causal Feature Engineering
-    df_feat = compute_features(df, lookback=lookback)
+    # 2. Causal Feature Engineering via Feature Hub
+    df_feat, computed_feature_cols = apply_features(df, feature_names=feature_names)
 
-    # 3. Label Definition: Forward return direction (+1, -1, 0)
+    # 3. Target Label Definition: Forward return direction (+1, -1, 0)
     df_feat["fwd_ret"] = df_feat["close"].shift(-horizon) / df_feat["close"] - 1.0
     thresh = 0.0005
     df_feat["target"] = 0
     df_feat.loc[df_feat["fwd_ret"] > thresh, "target"] = 1
     df_feat.loc[df_feat["fwd_ret"] < -thresh, "target"] = -1
 
-    # Drop warm-up and boundary rows
+    # Drop warm-up rows
     valid_data = df_feat.dropna().copy()
-    feature_cols = ["feature_norm_delta", "feature_imbalance_ratio", "feature_momentum"]
-    X = valid_data[feature_cols].values
+    X = valid_data[computed_feature_cols].values
     y = valid_data["target"].values
     fwd_ret = valid_data["fwd_ret"].values
 
@@ -189,7 +180,6 @@ def execute_training_run(
         acc = float(np.mean(preds == y_test))
         accuracies.append(acc)
 
-        # Economic return of directional bets
         strat_ret = preds * ret_test
         strategy_returns.extend(strat_ret.tolist())
 
@@ -198,7 +188,7 @@ def execute_training_run(
     strat_ret_arr = np.array(strategy_returns)
     mean_ret = float(np.mean(strat_ret_arr)) if len(strat_ret_arr) > 0 else 0.0
     std_ret = float(np.std(strat_ret_arr)) if len(strat_ret_arr) > 0 and np.std(strat_ret_arr) > 1e-8 else 1.0
-    sharpe = float((mean_ret / std_ret) * math.sqrt(252 * 1440))  # annualized assuming 1-min grain
+    sharpe = float((mean_ret / std_ret) * math.sqrt(252 * 1440))
     dsr = compute_deflated_sharpe_ratio(sharpe, n_trials=folds * 2, sample_length=len(strategy_returns))
 
     # Max Drawdown
@@ -207,10 +197,10 @@ def execute_training_run(
     drawdowns = (cum_returns - peak) / peak
     max_dd = float(np.min(drawdowns)) if len(drawdowns) > 0 else 0.0
 
-    # Spearman Rank IC
-    sig_series = pd.Series(valid_data["feature_norm_delta"])
+    # Spearman IC of the first feature
+    first_feat_series = pd.Series(valid_data[computed_feature_cols[0]])
     ret_series = pd.Series(valid_data["fwd_ret"])
-    spearman_ic = float(sig_series.rank().corr(ret_series.rank()))
+    spearman_ic = float(first_feat_series.rank().corr(ret_series.rank()))
 
     # 6. Fit final model on full set and seal artifact
     model.fit(X, y)
@@ -229,8 +219,8 @@ def execute_training_run(
     parameters = {
         "name": name,
         "model_type": model_type,
-        "features": feature_cols,
-        "lookback": lookback,
+        "features": feature_names,
+        "computed_columns": computed_feature_cols,
         "horizon": horizon,
         "folds": folds,
         "seed": seed,
@@ -257,3 +247,60 @@ def execute_training_run(
 
     registry.register(record)
     return record
+
+
+def simulate_strategy_replay(
+    strategy_name: str,
+    feature_names: list[str] | str = "cvd_zscore,price_momentum,realized_vol",
+    n_bars: int = 1500,
+    initial_capital: float = 10000.0,
+    seed: int = 42,
+    strategy_params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Execute a deterministic strategy replay and calculate portfolio statistics."""
+    strategy_params = strategy_params or {}
+    strategy = get_strategy(strategy_name, **strategy_params)
+
+    # 1. Acquire Data
+    df = generate_synthetic_market_data(n_bars=n_bars, seed=seed)
+
+    # 2. Compute required features
+    df_feat, _ = apply_features(df, feature_names=feature_names)
+
+    # 3. Simulate Strategy Signals and Positions
+    sim_df = strategy.simulate_signals(df_feat)
+
+    # 4. Accounting and Performance Metrics
+    trade_changes = sim_df["position"].diff().fillna(0.0) != 0
+    trade_count = int(trade_changes.sum())
+
+    total_return_pct = float(sim_df["equity_curve"].iloc[-1] - 1.0)
+    final_equity = initial_capital * (1.0 + total_return_pct)
+
+    strat_rets = sim_df["strategy_return"].values
+    mean_ret = float(np.mean(strat_rets))
+    std_ret = float(np.std(strat_rets)) if np.std(strat_rets) > 1e-8 else 1.0
+    annualized_sharpe = float((mean_ret / std_ret) * math.sqrt(252 * 1440))
+
+    # Max Drawdown
+    equity = sim_df["equity_curve"].values
+    peak = np.maximum.accumulate(equity)
+    drawdowns = (equity - peak) / peak
+    max_drawdown = float(np.min(drawdowns))
+
+    # Win rate
+    active_bars = strat_rets[sim_df["position"] != 0]
+    win_rate = float(np.mean(active_bars > 0)) if len(active_bars) > 0 else 0.0
+
+    return {
+        "strategy_name": strategy.name,
+        "description": strategy.description,
+        "n_bars": n_bars,
+        "initial_capital": initial_capital,
+        "final_equity": round(final_equity, 2),
+        "total_return_pct": round(total_return_pct * 100.0, 2),
+        "trade_count": trade_count,
+        "win_rate_pct": round(win_rate * 100.0, 2),
+        "annualized_sharpe": round(annualized_sharpe, 2),
+        "max_drawdown_pct": round(max_drawdown * 100.0, 2),
+    }
