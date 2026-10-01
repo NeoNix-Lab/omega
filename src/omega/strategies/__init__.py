@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from .. import platform_link as qp
+from .compiler import CompiledStrategy, compile_strategy
+from .spec import StrategyDef, StrategySpecError, load_strategy_spec, parse_strategy_spec, parse_strategy_spec_text
 
 
 def list_canonical_strategies() -> list[dict[str, Any]]:
@@ -29,4 +31,15 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["list_canonical_strategies", "minimal_breakout_strategy", "StrategySpec"]
+__all__ = [
+    "CompiledStrategy",
+    "StrategyDef",
+    "StrategySpec",
+    "StrategySpecError",
+    "compile_strategy",
+    "list_canonical_strategies",
+    "load_strategy_spec",
+    "minimal_breakout_strategy",
+    "parse_strategy_spec",
+    "parse_strategy_spec_text",
+]

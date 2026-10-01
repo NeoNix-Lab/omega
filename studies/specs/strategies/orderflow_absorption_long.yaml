@@ -1,0 +1,16 @@
+schema: omega.strategy-spec/v1
+name: orderflow_absorption_long
+version: 1
+# Analogue of the legacy `orderflow_absorption` (long side): extreme selling pressure (cvd z-score < -2)
+# is bought. NOT an exact port: the legacy z-score was computed over 20 one-minute bars of delta, the
+# `cvd_zscore` kernel works over the last N trades.
+features: [cvd_zscore_500]
+entry:
+  direction: long
+  rules:
+    - {feature: cvd_zscore_500, op: "<", value: "-2"}
+exit:
+  take_profit_pct: "1.2"
+  stop_loss_pct: "0.6"
+position: {size: "0.01"}
+sizing: {lot_size: "0.001", min_size: "0.001"}

@@ -1,0 +1,15 @@
+schema: omega.strategy-spec/v1
+name: orderflow_absorption_short
+version: 1
+# Analogue of the legacy `orderflow_absorption` (short side): extreme buying pressure (cvd z-score > 2)
+# is sold. See the long spec for how this differs from the legacy z-score.
+features: [cvd_zscore_500]
+entry:
+  direction: short
+  rules:
+    - {feature: cvd_zscore_500, op: ">", value: "2"}
+exit:
+  take_profit_pct: "1.2"
+  stop_loss_pct: "0.6"
+position: {size: "0.01"}
+sizing: {lot_size: "0.001", min_size: "0.001"}

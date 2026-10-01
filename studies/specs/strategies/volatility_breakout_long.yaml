@@ -1,0 +1,15 @@
+schema: omega.strategy-spec/v1
+name: volatility_breakout_long
+version: 1
+# Port of the legacy `volatility_breakout` (long side). The legacy class described a volatility gate but
+# only ever used momentum; this spec reproduces what the code did.
+features: [momentum_1m_5]
+entry:
+  direction: long
+  rules:
+    - {feature: momentum_1m_5, op: ">", value: "0.003"}
+exit:
+  take_profit_pct: "2.0"
+  stop_loss_pct: "0.8"
+position: {size: "0.01"}
+sizing: {lot_size: "0.001", min_size: "0.001"}

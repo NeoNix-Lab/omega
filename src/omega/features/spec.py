@@ -17,8 +17,6 @@ Example::
 
 from __future__ import annotations
 
-import hashlib
-import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -29,6 +27,7 @@ from typing import Any
 import yaml
 
 from .. import platform_link as qp
+from ..specio import canonical_decimal, identity_hash, load_yaml_strict
 from .kernels import KernelDef, ParamDef, get_kernel
 from .kernels import KernelError as KernelError  # re-exported for callers
 
@@ -75,49 +74,19 @@ class FeatureSpec:
                 "bar_ns": None if self.bar_ns is None else str(self.bar_ns),
             },
             "kernel": self.kernel,
-            "params": {name: _canonical_param(value) for name, value in self.params},
+            "params": {name: canonical_decimal(value) for name, value in self.params},
             "warmup": self.warmup,
             "output": self.output,
         }
 
     @property
     def identity(self) -> str:
-        payload = json.dumps(
-            self.stable_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
-        )
-        return f"{IDENTITY_DOMAIN}:sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
-
-
-def _canonical_param(value: int | Decimal) -> int | str:
-    if isinstance(value, Decimal):
-        if value == value.to_integral_value():
-            return str(int(value))
-        return format(value.normalize(), "f")
-    return value
+        return f"{IDENTITY_DOMAIN}:sha256:{identity_hash(self.stable_dict())}"
 
 
 # ---------------------------------------------------------------------------------------------
 # YAML loading (strict: duplicate keys are rejected)
 # ---------------------------------------------------------------------------------------------
-
-
-class _StrictLoader(yaml.SafeLoader):
-    pass
-
-
-def _construct_unique_mapping(loader: _StrictLoader, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
-    mapping: dict[Any, Any] = {}
-    for key_node, value_node in node.value:
-        key = loader.construct_object(key_node, deep=deep)
-        if key in mapping:
-            raise yaml.constructor.ConstructorError(
-                None, None, f"duplicate key {key!r}", key_node.start_mark
-            )
-        mapping[key] = loader.construct_object(value_node, deep=deep)
-    return mapping
-
-
-_StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_unique_mapping)
 
 
 def load_feature_spec(path: str | Path) -> FeatureSpec:
@@ -128,7 +97,7 @@ def load_feature_spec(path: str | Path) -> FeatureSpec:
 
 def parse_feature_spec_text(text: str, *, source: str = "<spec>") -> FeatureSpec:
     try:
-        raw = yaml.load(text, Loader=_StrictLoader)  # noqa: S506 - SafeLoader subclass
+        raw = load_yaml_strict(text)
     except yaml.YAMLError as exc:
         raise FeatureSpecError(f"{source}: invalid YAML: {exc}") from exc
     return parse_feature_spec(raw, source=source)
