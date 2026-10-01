@@ -41,5 +41,8 @@ ml = [
     "torch>=2.0.0",
 ]
 
+[project.scripts]
+omega = "omega.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]

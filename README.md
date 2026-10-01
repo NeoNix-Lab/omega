@@ -64,6 +64,26 @@ python studies/quickstart_alpha_study.py
 
 ---
 
+## 🎛️ CLI Orchestrator & Experiment Tracking
+
+Omega includes an integrated command-line orchestrator that drives model training, purges walk-forward folds, evaluates metrics, seals artifacts cryptographically, and maintains a lightweight append-only experiment registry (`experiments/registry.jsonl`).
+
+```bash
+# 1. Inspect environment, quant-platform link, git revision, and artifact storage
+python omega.py status
+
+# 2. Launch a causal alpha training run (with walk-forward CV and DSR evaluation)
+python omega.py train --name btc_orderflow_alpha --lookback 30 --horizon 5
+
+# 3. View the ranked leaderboard of all tracked experiments
+python omega.py leaderboard --sort-by dsr
+
+# 4. Inspect full JSON provenance and metrics for a specific run
+python omega.py inspect run_20261001_075735_btc_imbalance_momentum
+```
+
+---
+
 ## 🔄 Research to Production Workflow
 
 ```text
