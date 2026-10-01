@@ -31,8 +31,7 @@ omega/
 │       ├── orchestrator/# Application service composition (Wave 4 Replay & Wave 5 ML)
 │       └── tracking/   # Immutable experiment registry & provenance capture
 ├── studies/            # Scripted research studies driving quant-platform
-├── omega.py            # Direct CLI runner
-├── pyproject.toml      # Project metadata & editable quant-platform link
+├── pyproject.toml      # Project metadata & pinned quant-platform extra
 └── README.md
 ```
 
@@ -50,8 +49,13 @@ python -m venv .venv
 source .venv/bin/activate       # On Linux/macOS
 .venv\Scripts\Activate.ps1       # On Windows (PowerShell)
 
-# Install requirements with editable quant-platform link
-pip install -r requirements.txt
+# Install Omega + the quant-platform core (pinned tag) + dev tools
+pip install -e ".[platform,dev]"
+
+# `omega train` / `omega replay` run the platform's golden proofs, which read fixtures that are only
+# present in a quant-platform checkout (they are not packaged). For those commands use an editable
+# checkout instead of the pinned git install:
+#   pip install -e ../quant-platform
 ```
 
 ---
@@ -62,40 +66,40 @@ Omega exposes the canonical capabilities of `quant-platform` directly from the c
 
 ### 1. Inspect Platform Status & Capabilities
 ```bash
-python omega.py status
+omega status
 ```
 
 ### 2. Inspect Frozen Canonical Features & Representations
 ```bash
-python omega.py features list
+omega features list
 ```
 
 ### 3. Inspect Canonical Strategy Specifications
 ```bash
-python omega.py strategies list
+omega strategies list
 ```
 
 ### 4. Orchestrate Canonical Wave 5 Supervised Training
 Executes `quant_platform.application.run_wave5_golden_supervised_proof` over canonical Bybit trade fixtures, verifies bitwise determinism, and logs formal artifact signatures:
 ```bash
-python omega.py train --name wave5_canonical_model
+omega train --name wave5_canonical_model
 ```
 
 ### 5. Orchestrate Canonical Wave 4 Deterministic Replay
 Builds and verifies the canonical `ReplaySpec` against `DataGateway` and `HistoricalReplayRuntime`:
 ```bash
-python omega.py replay --capital 10000
+omega replay --capital 10000
 ```
 *(To run against a live PostgreSQL catalog database, supply `--dsn postgresql://user:pass@host/db` or set `GOLDEN_REPLAY_E2E_DSN`).*
 
 ### 6. View Ranked Leaderboard of Tracked Runs
 ```bash
-python omega.py leaderboard
+omega leaderboard
 ```
 
 ### 7. Inspect Full Provenance Manifest of a Specific Run
 ```bash
-python omega.py inspect <run_id_or_hash>
+omega inspect <run_id_or_hash>
 ```
 
 ---

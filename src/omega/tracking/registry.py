@@ -7,14 +7,12 @@ binaries off Git.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import hashlib
 import json
-import os
-from pathlib import Path
 import subprocess
-from typing import Any, Mapping
-
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 DEFAULT_REGISTRY_PATH = REPO_ROOT / "experiments" / "registry.jsonl"

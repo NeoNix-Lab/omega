@@ -1,0 +1,10 @@
+schema: omega.feature-spec/v1
+name: realized_vol_5m_20
+version: 1
+inputs:
+  representation: candles
+  bar: 5m
+kernel: realized_vol
+params:
+  window: 20
+  days_per_year: 365

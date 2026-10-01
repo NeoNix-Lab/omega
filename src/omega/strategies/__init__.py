@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from quant_platform.application.golden_replay import minimal_breakout_strategy
-from quant_platform.strategy import StrategySpec
+from .. import platform_link as qp
 
 
 def list_canonical_strategies() -> list[dict[str, Any]]:
     """List all canonical strategies and specifications from quant-platform."""
-    breakout = minimal_breakout_strategy()
+    breakout = qp.minimal_breakout_strategy()
     return [
         {
             "name": "minimal_breakout",
@@ -21,6 +20,13 @@ def list_canonical_strategies() -> list[dict[str, Any]]:
             "description": "Canonical Donchian breakout StrategySpec with deterministic policies.",
         }
     ]
+
+
+def __getattr__(name: str) -> Any:
+    # Re-exported lazily so that importing omega.strategies does not require the platform.
+    if name in {"minimal_breakout_strategy", "StrategySpec"}:
+        return getattr(qp, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = ["list_canonical_strategies", "minimal_breakout_strategy", "StrategySpec"]

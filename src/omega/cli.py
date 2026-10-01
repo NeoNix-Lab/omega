@@ -9,10 +9,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path
 
 from .features import list_canonical_features
 from .orchestrator.pipeline import orchestrate_canonical_replay, orchestrate_canonical_training
+from .platform_link import PLATFORM_PIN, CompatStatus, check_compat
 from .strategies import list_canonical_strategies
 from .tracking import DEFAULT_REGISTRY_PATH, ExperimentRegistry, get_git_provenance
 
@@ -24,14 +24,10 @@ def cmd_status(args: argparse.Namespace) -> int:
     print("=" * 65)
 
     # 1. quant-platform link
-    try:
-        import quant_platform
-        qp_version = getattr(quant_platform, "__version__", "dev")
-        qp_path = Path(quant_platform.__file__).parent
-        print(f"quant-platform Core  : [OK] linked (v{qp_version}) at {qp_path}")
-    except ImportError as exc:
-        print(f"quant-platform Core  : [FAIL] not installed on python path ({exc})")
-        return 1
+    compat = check_compat()
+    platform_available = compat.status is not CompatStatus.MISSING
+    print(f"quant-platform Core  : [{compat.status}] {compat.message}")
+    print(f"quant-platform Pin   : {PLATFORM_PIN.version} @ {PLATFORM_PIN.commit[:12]} ({PLATFORM_PIN.tag})")
 
     # 2. Git provenance
     git = get_git_provenance()
@@ -40,10 +36,14 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(f"Git HEAD Commit      : {git.get('git_commit')[:12] if git.get('git_commit') else 'unknown'}")
 
     # 3. Canonical Features and Strategies
-    feats = list_canonical_features()
-    strats = list_canonical_strategies()
-    print(f"Canonical Features   : {len(feats)} frozen features in quant-platform")
-    print(f"Canonical Strategies : {len(strats)} reference StrategySpec in quant-platform")
+    if platform_available:
+        feats = list_canonical_features()
+        strats = list_canonical_strategies()
+        print(f"Canonical Features   : {len(feats)} frozen features in quant-platform")
+        print(f"Canonical Strategies : {len(strats)} reference StrategySpec in quant-platform")
+    else:
+        print("Canonical Features   : unavailable (quant-platform not installed)")
+        print("Canonical Strategies : unavailable (quant-platform not installed)")
 
     # 4. Experiment registry
     registry = ExperimentRegistry()
@@ -51,6 +51,9 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(f"Tracked Experiments  : {len(runs)} runs logged in {DEFAULT_REGISTRY_PATH.name}")
 
     print("=" * 65)
+    if getattr(args, "strict", False) and compat.status is not CompatStatus.OK:
+        print(f"[ERROR] --strict: platform check is {compat.status}", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -87,7 +90,7 @@ def cmd_strategies(args: argparse.Namespace) -> int:
 def cmd_train(args: argparse.Namespace) -> int:
     """Orchestrate canonical Wave 5 supervised training from quant_platform.application."""
     print("=" * 65)
-    print(f" [OMEGA] EXECUTING CANONICAL WAVE 5 SUPERVISED TRAINING")
+    print(" [OMEGA] EXECUTING CANONICAL WAVE 5 SUPERVISED TRAINING")
     print("=" * 65)
     print(f"Target Name          : {args.name}")
     print(f"Code Reference       : {args.code_ref}")
@@ -114,7 +117,7 @@ def cmd_train(args: argparse.Namespace) -> int:
     print(f"  Brier Score        : {record.metrics.get('brier_score')}")
     print(f"  Evaluated Samples  : {int(record.metrics.get('row_count', 0))}")
     print("=" * 65)
-    print(f"View leaderboard:  python omega.py leaderboard")
+    print("View leaderboard:  python omega.py leaderboard")
     print(f"Inspect manifest:  python omega.py inspect {record.run_id}")
     return 0
 
@@ -213,7 +216,12 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
     # status
-    subparsers.add_parser("status", help="Show system status and canonical quant-platform capabilities")
+    p_status = subparsers.add_parser("status", help="Show system status and canonical quant-platform capabilities")
+    p_status.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit non-zero when quant-platform is missing or does not match the pinned version",
+    )
 
     # features
     p_feat = subparsers.add_parser("features", help="List canonical features in quant-platform")
@@ -251,20 +259,28 @@ def main() -> int:
         parser.print_help()
         return 0
 
-    if args.command == "status":
-        return cmd_status(args)
-    elif args.command == "features":
-        return cmd_features(args)
-    elif args.command == "strategies":
-        return cmd_strategies(args)
-    elif args.command == "train":
-        return cmd_train(args)
-    elif args.command == "replay":
-        return cmd_replay(args)
-    elif args.command == "leaderboard":
-        return cmd_leaderboard(args)
-    elif args.command == "inspect":
-        return cmd_inspect(args)
+    handlers = {
+        "status": cmd_status,
+        "features": cmd_features,
+        "strategies": cmd_strategies,
+        "train": cmd_train,
+        "replay": cmd_replay,
+        "leaderboard": cmd_leaderboard,
+        "inspect": cmd_inspect,
+    }
+    handler = handlers.get(args.command)
+    if handler is None:
+        return 0
+    try:
+        return handler(args)
+    except ModuleNotFoundError as exc:
+        if (exc.name or "").split(".")[0] != "quant_platform":
+            raise
+        print(
+            f"[ERROR] quant-platform is not installed; run: pip install -e \".[platform]\" ({exc})",
+            file=sys.stderr,
+        )
+        return 1
 
     return 0
 

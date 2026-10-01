@@ -1,0 +1,8 @@
+schema: omega.feature-spec/v1
+name: cvd_zscore_500
+version: 1
+inputs:
+  representation: trades
+kernel: cvd_zscore
+params:
+  window: 500

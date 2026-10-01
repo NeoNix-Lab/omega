@@ -6,18 +6,11 @@ and DataGateway) without creating parallel or duplicate domain logic.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import os
+from datetime import UTC, datetime
 from typing import Any
 
-from quant_platform.application import (
-    CANONICAL_BTCUSDT_DATASET,
-    build_golden_replay_spec,
-    minimal_breakout_strategy,
-    run_golden_replay_proof,
-    run_wave5_golden_supervised_proof,
-)
-
+from .. import platform_link as qp
 from ..tracking import ExperimentRegistry, RunRecord, get_git_provenance
 
 
@@ -32,13 +25,13 @@ def orchestrate_canonical_training(
         registry = ExperimentRegistry()
 
     if execution_id is None:
-        execution_id = f"exec_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        execution_id = f"exec_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 
-    run_timestamp = datetime.now(timezone.utc).isoformat()
+    run_timestamp = datetime.now(UTC).isoformat()
     run_id = f"run_{execution_id}_{name}"
 
     # 1. Execute canonical quant-platform Wave 5 proof / training
-    proof = run_wave5_golden_supervised_proof(
+    proof = qp.run_wave5_golden_supervised_proof(
         code_ref=code_ref,
         execution_id=execution_id,
     )
@@ -122,7 +115,7 @@ def orchestrate_canonical_replay(
 
     if not resolved_dsn:
         # Build specification without executing live DSN
-        spec = build_golden_replay_spec(
+        spec = qp.build_golden_replay_spec(
             start=start,
             end=end,
             initial_capital=initial_capital,
@@ -130,7 +123,10 @@ def orchestrate_canonical_replay(
         )
         return {
             "status": "SPEC_BUILT_STANDALONE",
-            "message": "ReplaySpec constructed successfully. To run against the live catalog database, pass --dsn or set GOLDEN_REPLAY_E2E_DSN.",
+            "message": (
+                "ReplaySpec constructed successfully. To run against the live catalog database, "
+                "pass --dsn or set GOLDEN_REPLAY_E2E_DSN."
+            ),
             "spec_identity": spec.identity,
             "dataset": str(spec.dataset),
             "start": spec.start,
@@ -142,7 +138,7 @@ def orchestrate_canonical_replay(
         }
 
     # Execute against real catalog
-    proof = run_golden_replay_proof(
+    proof = qp.run_golden_replay_proof(
         dsn=resolved_dsn,
         start=start,
         end=end,
