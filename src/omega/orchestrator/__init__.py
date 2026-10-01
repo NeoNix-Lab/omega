@@ -1,5 +1,5 @@
 """Omega Orchestrator Subpackage."""
 
-from .pipeline import execute_training_run, simulate_strategy_replay
+from .pipeline import orchestrate_canonical_replay, orchestrate_canonical_training
 
-__all__ = ["execute_training_run", "simulate_strategy_replay"]
+__all__ = ["orchestrate_canonical_replay", "orchestrate_canonical_training"]

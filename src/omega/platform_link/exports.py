@@ -33,6 +33,18 @@ PLATFORM_SYMBOLS: dict[str, str] = {
     # Execution costs
     "FeeSchedule": "quant_platform.execution",
     "SyntheticSlippageModel": "quant_platform.execution",
+    # Application-level canonical helpers used by the current CLI. NOTE: the "golden" helpers are
+    # proof/demo-grade code that lives in quant_platform.application (see upstream-asks issue #15, U3/U4).
+    "build_golden_replay_spec": "quant_platform.application",
+    "minimal_breakout_strategy": "quant_platform.application",
+    "run_golden_replay_proof": "quant_platform.application",
+    "run_wave5_golden_supervised_proof": "quant_platform.application",
+    # Feature / representation definitions
+    "H01_IMBALANCE_FEATURE_SET_IDENTITY": "quant_platform.features.h01_imbalance",
+    "diagonal_imbalance_definition": "quant_platform.features.h01_imbalance",
+    "stacked_imbalance_definition": "quant_platform.features.h01_imbalance",
+    "CandleDefinitionV1": "quant_platform.representation.candles",
+    "FootprintDefinitionV1": "quant_platform.representation.footprints",
     # Validation
     "evaluate_dsr_v1": "quant_platform.validation.robustness",
     "evaluate_pbo_v1": "quant_platform.validation.robustness",

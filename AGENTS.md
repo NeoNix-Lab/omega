@@ -45,5 +45,9 @@ pip install -e ".[platform,dev]"
 omega status
 ```
 
+Golden-proof commands (`omega train`, `omega replay`) need a quant-platform **checkout** installed
+editable (`pip install -e ../quant-platform`): the platform does not package its fixtures, so they fail
+with `FileNotFoundError` on the pinned git install (tracked as U10 in issue #15).
+
 Entry points are the console script `omega` and `python -m omega` only (there is no root `omega.py`:
 it would shadow the `omega` package).

@@ -116,9 +116,9 @@ def test_unknown_attribute_raises_attribute_error() -> None:
 
 
 def _status(monkeypatch: pytest.MonkeyPatch, status: CompatStatus, *, strict: bool) -> int:
-    monkeypatch.setattr(
-        cli, "check_compat", lambda: CompatResult(status, None, None, f"fake {status}")
-    )
+    monkeypatch.setattr(cli, "check_compat", lambda: CompatResult(status, None, None, f"fake {status}"))
+    monkeypatch.setattr(cli, "list_canonical_features", lambda: [])
+    monkeypatch.setattr(cli, "list_canonical_strategies", lambda: [])
     return cli.cmd_status(argparse.Namespace(strict=strict))
 
 
