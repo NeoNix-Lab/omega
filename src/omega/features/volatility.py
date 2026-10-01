@@ -38,7 +38,9 @@ def compute_parkinson_volatility(df: pd.DataFrame, window: int = 20, periods_per
     description="Garman-Klass volatility estimator using Open, High, Low, and Close.",
     required_columns=("open", "high", "low", "close"),
 )
-def compute_garman_klass_volatility(df: pd.DataFrame, window: int = 20, periods_per_year: int = 252 * 1440) -> pd.Series:
+def compute_garman_klass_volatility(
+    df: pd.DataFrame, window: int = 20, periods_per_year: int = 252 * 1440
+) -> pd.Series:
     """Garman-Klass (1980) volatility estimator."""
     log_hl = np.log(df["high"] / df["low"]) ** 2
     log_co = np.log(df["close"] / df["open"]) ** 2

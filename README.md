@@ -33,7 +33,7 @@ omega/
 │       └── viz/        # Order flow, footprint, and PnL visualizers
 ├── studies/            # Parameterized, reproducible Python research scripts
 ├── pyproject.toml      # Project metadata and dependencies
-├── requirements.txt    # Setup requirements with editable quant-platform link
+├── requirements.txt    # Convenience: editable install with platform + dev extras
 └── README.md
 ```
 
@@ -52,8 +52,8 @@ python -m venv .venv
 source .venv/bin/activate       # On Linux/macOS
 .venv\Scripts\Activate.ps1       # On Windows (PowerShell)
 
-# Install research stack + editable quant-platform link
-pip install -r requirements.txt
+# Install Omega + the quant-platform core (pinned tag) + dev tools
+pip install -e ".[platform,dev]"
 ```
 
 ### 2. Run the First Alpha Study
@@ -70,25 +70,25 @@ Omega includes an integrated command-line orchestrator that drives model trainin
 
 ```bash
 # 1. Inspect environment, quant-platform link, git revision, and artifact storage
-python omega.py status
+omega status
 
 # 2. List available derived features in the Feature Hub
-python omega.py features list
+omega features list
 
 # 3. List available alpha strategies in the Strategy Hub
-python omega.py strategies list
+omega strategies list
 
 # 4. Launch a causal alpha training run selecting specific features
-python omega.py train --name btc_alpha --features cvd_zscore,rsi,realized_vol --horizon 5
+omega train --name btc_alpha --features cvd_zscore,rsi,realized_vol --horizon 5
 
 # 5. Simulate a strategy replay with portfolio accounting
-python omega.py replay --strategy volatility_breakout --capital 10000
+omega replay --strategy volatility_breakout --capital 10000
 
 # 6. View the ranked leaderboard of all tracked experiments
-python omega.py leaderboard --sort-by dsr
+omega leaderboard --sort-by dsr
 
 # 7. Inspect full JSON provenance and metrics for a specific run
-python omega.py inspect run_20261001_093514_custom_derived_features
+omega inspect run_20261001_093514_custom_derived_features
 ```
 
 ---

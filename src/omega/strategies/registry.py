@@ -5,9 +5,10 @@ Allows registering and loading custom research and trading strategies.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import inspect
-from typing import Any, Callable, Type
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 from .base import BaseStrategy
 
@@ -18,7 +19,7 @@ class StrategyDescriptor:
 
     name: str
     description: str
-    strategy_cls: Type[BaseStrategy]
+    strategy_cls: type[BaseStrategy]
     default_params: dict[str, Any]
 
 
@@ -28,10 +29,10 @@ _STRATEGY_REGISTRY: dict[str, StrategyDescriptor] = {}
 def register_strategy(
     name: str,
     description: str = "",
-) -> Callable[[Type[BaseStrategy]], Type[BaseStrategy]]:
+) -> Callable[[type[BaseStrategy]], type[BaseStrategy]]:
     """Decorator to register a custom strategy class."""
 
-    def decorator(cls: Type[BaseStrategy]) -> Type[BaseStrategy]:
+    def decorator(cls: type[BaseStrategy]) -> type[BaseStrategy]:
         sig = inspect.signature(cls.__init__)
         defaults = {
             param.name: param.default

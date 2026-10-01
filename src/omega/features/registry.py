@@ -6,9 +6,10 @@ Allows easy creation and plug-and-play registration of derived quantitative feat
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import inspect
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 import pandas as pd
 

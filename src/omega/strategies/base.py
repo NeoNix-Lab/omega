@@ -98,7 +98,7 @@ class BaseStrategy:
             "entry_price": 0.0,
         }
 
-        for idx, row in sim_df.iterrows():
+        for _idx, row in sim_df.iterrows():
             decision = self.generate_signal(row, context)
             actions.append(decision.action.value)
             confidences.append(decision.confidence)

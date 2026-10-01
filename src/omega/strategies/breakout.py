@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from typing import Any
+
 import pandas as pd
 
-from .base import BaseStrategy, SignalAction, SignalDecision
+from .base import BaseStrategy, SignalDecision
 from .registry import register_strategy
 
 

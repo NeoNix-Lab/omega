@@ -7,15 +7,6 @@ as the underlying engine, respecting the DataGateway boundary.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-# Add quant-platform to sys.path if not installed in editable mode
-REPO_ROOT = Path(__file__).resolve().parent.parent
-QUANT_PLATFORM_DIR = REPO_ROOT.parent / "quant-platform" / "src"
-if QUANT_PLATFORM_DIR.exists() and str(QUANT_PLATFORM_DIR) not in sys.path:
-    sys.path.insert(0, str(QUANT_PLATFORM_DIR))
-
 import numpy as np
 import pandas as pd
 
@@ -46,11 +37,10 @@ def main() -> int:
     # 1. Check quant_platform integration
     try:
         import quant_platform
-        from quant_platform.data import Instant
         print(f"[OK] Successfully linked quant_platform (v{getattr(quant_platform, '__version__', 'dev')})")
     except ImportError as exc:
         print(f"[WARN] quant_platform not found on python path: {exc}")
-        print("  Run: pip install -e ../quant-platform")
+        print("  Run: pip install -e \".[platform]\"")
 
     # 2. Synthetic demonstration of an alpha research workflow
     print("\n[STEP 1] Generating synthetic order flow data (trades / delta)...")

@@ -6,10 +6,9 @@ model fitting, out-of-sample evaluation, strategy replays, and artifact sealing.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import math
-from pathlib import Path
 import pickle
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -71,7 +70,8 @@ def compute_deflated_sharpe_ratio(
 
     gamma = 0.5772156649
     if n_trials > 1:
-        e_max_sharpe = (1.0 - gamma) * math.sqrt(2.0 * math.log(n_trials)) + (gamma / math.sqrt(2.0 * math.log(n_trials)))
+        root = math.sqrt(2.0 * math.log(n_trials))
+        e_max_sharpe = (1.0 - gamma) * root + (gamma / root)
     else:
         e_max_sharpe = 0.0
 
@@ -131,8 +131,8 @@ def execute_training_run(
     if isinstance(feature_names, str):
         feature_names = [f.strip() for f in feature_names.split(",") if f.strip()]
 
-    run_timestamp = datetime.now(timezone.utc).isoformat()
-    run_id = f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{name}"
+    run_timestamp = datetime.now(UTC).isoformat()
+    run_id = f"run_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}_{name}"
 
     # 1. Acquire Data (Deterministic synthetic baseline)
     df = generate_synthetic_market_data(n_bars=1500, seed=seed)

@@ -75,7 +75,7 @@ def cmd_features(args: argparse.Namespace) -> int:
         cols_str = ", ".join(f.required_columns)
         print(f"{f.name:<22} | {cols_str:<24} | {f.description[:30]}")
     print("=" * 80)
-    print("Use any feature in training:  python omega.py train --features cvd_zscore,rsi,realized_vol")
+    print("Use any feature in training:  omega train --features cvd_zscore,rsi,realized_vol")
     return 0
 
 
@@ -92,7 +92,7 @@ def cmd_strategies(args: argparse.Namespace) -> int:
         params_str = ", ".join(f"{k}={v}" for k, v in list(s.default_params.items())[:2])
         print(f"{s.name:<25} | {params_str:<25} | {s.description[:26]}")
     print("=" * 80)
-    print("Simulate a strategy:  python omega.py replay --strategy orderflow_absorption")
+    print("Simulate a strategy:  omega replay --strategy orderflow_absorption")
     return 0
 
 
@@ -131,8 +131,8 @@ def cmd_train(args: argparse.Namespace) -> int:
     print(f"  Deflated Sharpe    : {record.metrics.get('deflated_sharpe_ratio'):.2f} (DSR)")
     print(f"  Max Drawdown       : {record.metrics.get('max_drawdown'):.2%}")
     print("=" * 65)
-    print(f"View leaderboard:  python omega.py leaderboard")
-    print(f"Inspect run:       python omega.py inspect {record.run_id}")
+    print("View leaderboard:  omega leaderboard")
+    print(f"Inspect run:       omega inspect {record.run_id}")
     return 0
 
 
@@ -184,11 +184,14 @@ def cmd_leaderboard(args: argparse.Namespace) -> int:
     print("=" * 80)
 
     if not top_runs:
-        print("No training runs registered yet. Run one with: python omega.py train")
+        print("No training runs registered yet. Run one with: omega train")
         print("=" * 80)
         return 0
 
-    header = f"{'Rank':<5} | {'Run ID':<26} | {'Model':<12} | {'Acc':<7} | {'Sharpe':<8} | {'DSR':<7} | {'Model SHA':<14}"
+    header = (
+        f"{'Rank':<5} | {'Run ID':<26} | {'Model':<12} | {'Acc':<7} | "
+        f"{'Sharpe':<8} | {'DSR':<7} | {'Model SHA':<14}"
+    )
     print(header)
     print("-" * 80)
 
@@ -246,7 +249,12 @@ def main() -> int:
     p_train = subparsers.add_parser("train", help="Launch a causal alpha model training run")
     p_train.add_argument("--name", type=str, default="orderflow_alpha", help="Identifier name for the run")
     p_train.add_argument("--model-type", type=str, default="centroid_classifier", help="Model architecture")
-    p_train.add_argument("--features", type=str, default="cvd_zscore,imbalance_ratio,price_momentum", help="Comma-separated feature names")
+    p_train.add_argument(
+        "--features",
+        type=str,
+        default="cvd_zscore,imbalance_ratio,price_momentum",
+        help="Comma-separated feature names",
+    )
     p_train.add_argument("--horizon", type=int, default=5, help="Forward return prediction horizon in bars")
     p_train.add_argument("--folds", type=int, default=3, help="Number of walk-forward validation folds")
     p_train.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
@@ -254,13 +262,24 @@ def main() -> int:
     # replay
     p_rep = subparsers.add_parser("replay", help="Run a strategy simulation / replay")
     p_rep.add_argument("--strategy", type=str, default="orderflow_absorption", help="Strategy to simulate")
-    p_rep.add_argument("--features", type=str, default="cvd_zscore,price_momentum,realized_vol", help="Features to compute for strategy")
+    p_rep.add_argument(
+        "--features",
+        type=str,
+        default="cvd_zscore,price_momentum,realized_vol",
+        help="Features to compute for strategy",
+    )
     p_rep.add_argument("--capital", type=float, default=10000.0, help="Initial simulation capital")
     p_rep.add_argument("--bars", type=int, default=1500, help="Number of market bars to simulate")
 
     # leaderboard
     p_lead = subparsers.add_parser("leaderboard", help="View ranked leaderboard of tracked runs")
-    p_lead.add_argument("--sort-by", type=str, default="dsr", choices=["dsr", "sharpe", "accuracy", "ic"], help="Metric to rank by")
+    p_lead.add_argument(
+        "--sort-by",
+        type=str,
+        default="dsr",
+        choices=["dsr", "sharpe", "accuracy", "ic"],
+        help="Metric to rank by",
+    )
     p_lead.add_argument("--limit", type=int, default=10, help="Max runs to display")
 
     # inspect
