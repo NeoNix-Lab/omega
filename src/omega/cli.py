@@ -9,10 +9,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path
 
 from .features import list_features
 from .orchestrator.pipeline import execute_training_run, simulate_strategy_replay
+from .platform_link import PLATFORM_PIN, CompatStatus, check_compat
 from .strategies import list_strategies
 from .tracking import DEFAULT_MODELS_DIR, DEFAULT_REGISTRY_PATH, ExperimentRegistry, get_git_provenance
 
@@ -24,13 +24,9 @@ def cmd_status(args: argparse.Namespace) -> int:
     print("=" * 65)
 
     # 1. quant-platform link
-    try:
-        import quant_platform
-        qp_version = getattr(quant_platform, "__version__", "dev")
-        qp_path = Path(quant_platform.__file__).parent
-        print(f"quant-platform Core  : [OK] linked (v{qp_version}) at {qp_path}")
-    except ImportError as exc:
-        print(f"quant-platform Core  : [WARN] not installed on python path ({exc})")
+    compat = check_compat()
+    print(f"quant-platform Core  : [{compat.status}] {compat.message}")
+    print(f"quant-platform Pin   : {PLATFORM_PIN.version} @ {PLATFORM_PIN.commit[:12]} ({PLATFORM_PIN.tag})")
 
     # 2. Git provenance
     git = get_git_provenance()
@@ -59,6 +55,9 @@ def cmd_status(args: argparse.Namespace) -> int:
         print("Model Artifacts      : 0 files")
 
     print("=" * 65)
+    if getattr(args, "strict", False) and compat.status is not CompatStatus.OK:
+        print(f"[ERROR] --strict: platform check is {compat.status}", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -235,7 +234,12 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
     # status
-    subparsers.add_parser("status", help="Show system status, git state, and experiment count")
+    p_status = subparsers.add_parser("status", help="Show system status, git state, and experiment count")
+    p_status.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit non-zero when quant-platform is missing or does not match the pinned version",
+    )
 
     # features
     p_feat = subparsers.add_parser("features", help="Manage and list derived features in Feature Hub")

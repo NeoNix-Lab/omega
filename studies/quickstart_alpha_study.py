@@ -10,6 +10,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from omega.platform_link import check_compat
+
 
 def compute_information_coefficient(signal: pd.Series, forward_returns: pd.Series) -> dict[str, float]:
     """Compute Spearman Rank IC and Pearson IC between signal and future return."""
@@ -34,13 +36,9 @@ def main() -> int:
     print("OMEGA — Quickstart Alpha Research Study")
     print("=" * 60)
 
-    # 1. Check quant_platform integration
-    try:
-        import quant_platform
-        print(f"[OK] Successfully linked quant_platform (v{getattr(quant_platform, '__version__', 'dev')})")
-    except ImportError as exc:
-        print(f"[WARN] quant_platform not found on python path: {exc}")
-        print("  Run: pip install -e \".[platform]\"")
+    # 1. Check quant_platform integration (through the single platform import surface)
+    compat = check_compat()
+    print(f"[{compat.status}] {compat.message}")
 
     # 2. Synthetic demonstration of an alpha research workflow
     print("\n[STEP 1] Generating synthetic order flow data (trades / delta)...")
