@@ -1,7 +1,7 @@
 """Command Line Orchestrator for Omega.
 
-Provides commands to manage derived features, strategies, model trainings,
-leaderboard comparisons, and strategy replay simulations.
+Provides the user with commands to orchestrate canonical quant-platform capabilities:
+DataGateway, Feature Engine, StrategySpec, Deterministic Replay, and Supervised Learning.
 """
 
 from __future__ import annotations
@@ -11,16 +11,16 @@ import json
 import sys
 from pathlib import Path
 
-from .features import list_features
-from .orchestrator.pipeline import execute_training_run, simulate_strategy_replay
-from .strategies import list_strategies
-from .tracking import DEFAULT_MODELS_DIR, DEFAULT_REGISTRY_PATH, ExperimentRegistry, get_git_provenance
+from .features import list_canonical_features
+from .orchestrator.pipeline import orchestrate_canonical_replay, orchestrate_canonical_training
+from .strategies import list_canonical_strategies
+from .tracking import DEFAULT_REGISTRY_PATH, ExperimentRegistry, get_git_provenance
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    """Show system status, quant-platform link, git state, and tracked experiments."""
+    """Show system status, quant-platform link, git state, and canonical capabilities."""
     print("=" * 65)
-    print(" [OMEGA] SYSTEM & RESEARCH STATUS")
+    print(" [OMEGA] QUANT-PLATFORM CANONICAL ORCHESTRATOR STATUS")
     print("=" * 65)
 
     # 1. quant-platform link
@@ -30,7 +30,8 @@ def cmd_status(args: argparse.Namespace) -> int:
         qp_path = Path(quant_platform.__file__).parent
         print(f"quant-platform Core  : [OK] linked (v{qp_version}) at {qp_path}")
     except ImportError as exc:
-        print(f"quant-platform Core  : [WARN] not installed on python path ({exc})")
+        print(f"quant-platform Core  : [FAIL] not installed on python path ({exc})")
+        return 1
 
     # 2. Git provenance
     git = get_git_provenance()
@@ -38,149 +39,132 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(f"Git Current Branch   : {git.get('git_branch')}{dirty_str}")
     print(f"Git HEAD Commit      : {git.get('git_commit')[:12] if git.get('git_commit') else 'unknown'}")
 
-    # 3. Available Features and Strategies
-    feats = list_features()
-    strats = list_strategies()
-    print(f"Registered Features  : {len(feats)} features in Feature Hub")
-    print(f"Registered Strategies: {len(strats)} strategies in Strategy Hub")
+    # 3. Canonical Features and Strategies
+    feats = list_canonical_features()
+    strats = list_canonical_strategies()
+    print(f"Canonical Features   : {len(feats)} frozen features in quant-platform")
+    print(f"Canonical Strategies : {len(strats)} reference StrategySpec in quant-platform")
 
     # 4. Experiment registry
     registry = ExperimentRegistry()
     runs = registry.list_runs()
-    print(f"Tracked Runs Count   : {len(runs)} runs in {DEFAULT_REGISTRY_PATH.name}")
-
-    # 5. Storage artifacts
-    if DEFAULT_MODELS_DIR.exists():
-        model_files = list(DEFAULT_MODELS_DIR.glob("*.bin"))
-        total_size_bytes = sum(f.stat().st_size for f in model_files)
-        total_kb = total_size_bytes / 1024.0
-        print(f"Model Artifacts      : {len(model_files)} weights files ({total_kb:.1f} KB in data/models/)")
-    else:
-        print("Model Artifacts      : 0 files")
+    print(f"Tracked Experiments  : {len(runs)} runs logged in {DEFAULT_REGISTRY_PATH.name}")
 
     print("=" * 65)
     return 0
 
 
 def cmd_features(args: argparse.Namespace) -> int:
-    """List all registered derived features in the Feature Hub."""
-    feats = list_features()
+    """List frozen, canonical features and representations from quant-platform."""
+    feats = list_canonical_features()
     print("=" * 80)
-    print(f" [OMEGA] REGISTERED DERIVED FEATURES ({len(feats)} available)")
+    print(f" [OMEGA] CANONICAL PLATFORM FEATURES ({len(feats)} available)")
     print("=" * 80)
-    header = f"{'Feature Name':<22} | {'Required Columns':<24} | {'Description':<30}"
+    header = f"{'Feature Key':<24} | {'Domain':<14} | {'Version':<8} | {'Description':<30}"
     print(header)
     print("-" * 80)
     for f in feats:
-        cols_str = ", ".join(f.required_columns)
-        print(f"{f.name:<22} | {cols_str:<24} | {f.description[:30]}")
+        print(f"{f['feature_key']:<24} | {f['domain']:<14} | {f['version']:<8} | {f['description'][:30]}")
     print("=" * 80)
-    print("Use any feature in training:  python omega.py train --features cvd_zscore,rsi,realized_vol")
     return 0
 
 
 def cmd_strategies(args: argparse.Namespace) -> int:
-    """List all registered strategies in the Strategy Hub."""
-    strats = list_strategies()
+    """List canonical strategies and policies from quant-platform."""
+    strats = list_canonical_strategies()
     print("=" * 80)
-    print(f" [OMEGA] REGISTERED STRATEGIES ({len(strats)} available)")
+    print(f" [OMEGA] CANONICAL STRATEGY SPECIFICATIONS ({len(strats)} available)")
     print("=" * 80)
-    header = f"{'Strategy Name':<25} | {'Default Parameters':<25} | {'Description':<26}"
+    header = f"{'Strategy Name':<20} | {'Strategy Identity':<35} | {'Description':<20}"
     print(header)
     print("-" * 80)
     for s in strats:
-        params_str = ", ".join(f"{k}={v}" for k, v in list(s.default_params.items())[:2])
-        print(f"{s.name:<25} | {params_str:<25} | {s.description[:26]}")
+        print(f"{s['name']:<20} | {s['strategy_identity'][:35]:<35} | {s['description'][:20]}")
     print("=" * 80)
-    print("Simulate a strategy:  python omega.py replay --strategy orderflow_absorption")
     return 0
 
 
 def cmd_train(args: argparse.Namespace) -> int:
-    """Launch an alpha training pipeline run and track it in the experiment registry."""
+    """Orchestrate canonical Wave 5 supervised training from quant_platform.application."""
     print("=" * 65)
-    print(f" [OMEGA] LAUNCHING ALPHA TRAINING PIPELINE: {args.name}")
+    print(f" [OMEGA] EXECUTING CANONICAL WAVE 5 SUPERVISED TRAINING")
     print("=" * 65)
-    print(f"Model Type           : {args.model_type}")
-    print(f"Features             : {args.features}")
-    print(f"Prediction Horizon   : {args.horizon} bars")
-    print(f"Walk-Forward Folds   : {args.folds} (Purged & Embargoed)")
-    print(f"Seed                 : {args.seed}")
+    print(f"Target Name          : {args.name}")
+    print(f"Code Reference       : {args.code_ref}")
     print("-" * 65)
 
     registry = ExperimentRegistry()
-    record = execute_training_run(
+    record = orchestrate_canonical_training(
         name=args.name,
-        model_type=args.model_type,
-        feature_names=args.features,
-        horizon=args.horizon,
-        folds=args.folds,
-        seed=args.seed,
+        code_ref=args.code_ref,
         registry=registry,
     )
 
-    print("\n[SUCCESS] Training completed and experiment registered!")
+    print("\n[SUCCESS] Canonical supervised training verified bitwise-deterministic!")
     print(f"  Run ID             : {record.run_id}")
-    print(f"  Model SHA-256      : {record.artifacts.get('sha256')}")
-    print(f"  Saved Locator      : {record.artifacts.get('storage_locator')}")
+    print(f"  Model Identity     : {record.parameters.get('model_identity')}")
+    print(f"  Model Artifact     : {record.artifacts.get('sha256')}")
+    print(f"  Normalizer Artifact: {record.artifacts.get('normalizer')}")
     print("-" * 65)
-    print(" EVALUATION SCORECARD:")
+    print(" CANONICAL METRICS SCORECARD:")
     print(f"  Accuracy           : {record.metrics.get('accuracy'):.2%}")
-    print(f"  Spearman IC        : {record.metrics.get('spearman_ic'):.4f}")
-    print(f"  Annualized Sharpe  : {record.metrics.get('sharpe_ratio'):.2f}")
-    print(f"  Deflated Sharpe    : {record.metrics.get('deflated_sharpe_ratio'):.2f} (DSR)")
-    print(f"  Max Drawdown       : {record.metrics.get('max_drawdown'):.2%}")
+    print(f"  Macro Precision    : {record.metrics.get('macro_precision'):.2%}")
+    print(f"  Macro Recall       : {record.metrics.get('macro_recall'):.2%}")
+    print(f"  Macro F1           : {record.metrics.get('macro_f1'):.2%}")
+    print(f"  Brier Score        : {record.metrics.get('brier_score')}")
+    print(f"  Evaluated Samples  : {int(record.metrics.get('row_count', 0))}")
     print("=" * 65)
     print(f"View leaderboard:  python omega.py leaderboard")
-    print(f"Inspect run:       python omega.py inspect {record.run_id}")
+    print(f"Inspect manifest:  python omega.py inspect {record.run_id}")
     return 0
 
 
 def cmd_replay(args: argparse.Namespace) -> int:
-    """Run a deterministic strategy replay and display portfolio statistics."""
+    """Orchestrate canonical Wave 4 deterministic replay from quant_platform.application."""
     print("=" * 65)
-    print(f" [OMEGA] STRATEGY REPLAY SIMULATION: {args.strategy}")
+    print(" [OMEGA] EXECUTING CANONICAL WAVE 4 REPLAY ORCHESTRATION")
     print("=" * 65)
-    print(f"Features Fed         : {args.features}")
-    print(f"Bars Simulated       : {args.bars}")
-    print(f"Initial Capital      : ${args.capital:,.2f}")
+    print(f"Start Window         : {args.start}")
+    print(f"End Window           : {args.end}")
+    print(f"Initial Capital      : ${args.capital}")
     print("-" * 65)
 
-    res = simulate_strategy_replay(
-        strategy_name=args.strategy,
-        feature_names=args.features,
-        n_bars=args.bars,
-        initial_capital=args.capital,
+    res = orchestrate_canonical_replay(
+        dsn=args.dsn,
+        start=args.start,
+        end=args.end,
+        initial_capital=str(args.capital),
+        lookback=args.lookback,
+        batch_size=args.batch_size,
     )
 
-    print("\n[SUCCESS] Replay completed!")
-    print(f"  Strategy           : {res['strategy_name']}")
-    print(f"  Description        : {res['description']}")
-    print("-" * 65)
-    print(" REPLAY SCORECARD:")
-    print(f"  Final Equity       : ${res['final_equity']:,.2f} ({res['total_return_pct']:+.2f}%)")
-    print(f"  Total Trades       : {res['trade_count']}")
-    print(f"  Win Rate           : {res['win_rate_pct']:.2f}%")
-    print(f"  Annualized Sharpe  : {res['annualized_sharpe']:.2f}")
-    print(f"  Max Drawdown       : {res['max_drawdown_pct']:.2f}%")
+    if res["status"] == "SPEC_BUILT_STANDALONE":
+        print("[OK] Canonical ReplaySpec built successfully (No Live DSN passed):")
+        print(f"  Spec Identity      : {res['spec_identity']}")
+        print(f"  Dataset            : {res['dataset']}")
+        print(f"  Strategy Identity  : {res['strategy']}")
+        print(f"  Ordering Policy    : {res['ordering_policy']}")
+        print("-" * 65)
+        print(f"  Notice             : {res['message']}")
+    else:
+        print("[SUCCESS] Replay executed and verified against canonical catalog:")
+        print(f"  Spec Identity      : {res['spec_identity']}")
+        print(f"  Deterministic      : {res['deterministic']}")
+        print(f"  Trace Fingerprint  : {res['trace_fingerprint']}")
+        print(f"  Orders Realized    : {res['orders_count']}")
+        print(f"  Fills Realized     : {res['fills_count']}")
+
     print("=" * 65)
     return 0
 
 
 def cmd_leaderboard(args: argparse.Namespace) -> int:
-    """Print a clean leaderboard ranking all tracked training runs."""
+    """Print leaderboard ranking tracked canonical training runs."""
     registry = ExperimentRegistry()
-    metric_map = {
-        "dsr": "deflated_sharpe_ratio",
-        "sharpe": "sharpe_ratio",
-        "accuracy": "accuracy",
-        "ic": "spearman_ic",
-    }
-    sort_key = metric_map.get(args.sort_by, args.sort_by)
-    top_runs = registry.leaderboard(sort_by=sort_key, ascending=False, limit=args.limit)
+    top_runs = registry.leaderboard(sort_by=args.sort_by, ascending=False, limit=args.limit)
 
     print("=" * 80)
-    print(f" [OMEGA] EXPERIMENT LEADERBOARD (Ranked by {sort_key.upper()})")
+    print(f" [OMEGA] CANONICAL EXPERIMENT LEADERBOARD (Ranked by {args.sort_by.upper()})")
     print("=" * 80)
 
     if not top_runs:
@@ -188,19 +172,16 @@ def cmd_leaderboard(args: argparse.Namespace) -> int:
         print("=" * 80)
         return 0
 
-    header = f"{'Rank':<5} | {'Run ID':<26} | {'Model':<12} | {'Acc':<7} | {'Sharpe':<8} | {'DSR':<7} | {'Model SHA':<14}"
+    header = f"{'Rank':<5} | {'Run ID':<30} | {'Acc':<7} | {'Model Artifact SHA':<32}"
     print(header)
     print("-" * 80)
 
     for idx, r in enumerate(top_runs, 1):
         line = (
             f"{idx:<5} | "
-            f"{r['run_id'][:26]:<26} | "
-            f"{r['model_type'][:12]:<12} | "
+            f"{r['run_id'][:30]:<30} | "
             f"{r['accuracy']:.2%} | "
-            f"{r['sharpe']:>7.2f} | "
-            f"{r['dsr']:>6.2f} | "
-            f"{r['model_sha'][:14]:<14}"
+            f"{r['model_sha'][:32]:<32}"
         )
         print(line)
 
@@ -227,40 +208,38 @@ def cmd_inspect(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(
         prog="omega",
-        description="Omega - Alpha Discovery and Experimentation Lab Orchestrator",
+        description="Omega - Canonical Orchestrator for quant-platform",
     )
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
     # status
-    subparsers.add_parser("status", help="Show system status, git state, and experiment count")
+    subparsers.add_parser("status", help="Show system status and canonical quant-platform capabilities")
 
     # features
-    p_feat = subparsers.add_parser("features", help="Manage and list derived features in Feature Hub")
+    p_feat = subparsers.add_parser("features", help="List canonical features in quant-platform")
     p_feat.add_argument("action", choices=["list"], default="list", nargs="?", help="Action (default: list)")
 
     # strategies
-    p_strat = subparsers.add_parser("strategies", help="Manage and list strategies in Strategy Hub")
+    p_strat = subparsers.add_parser("strategies", help="List canonical StrategySpecs in quant-platform")
     p_strat.add_argument("action", choices=["list"], default="list", nargs="?", help="Action (default: list)")
 
     # train
-    p_train = subparsers.add_parser("train", help="Launch a causal alpha model training run")
-    p_train.add_argument("--name", type=str, default="orderflow_alpha", help="Identifier name for the run")
-    p_train.add_argument("--model-type", type=str, default="centroid_classifier", help="Model architecture")
-    p_train.add_argument("--features", type=str, default="cvd_zscore,imbalance_ratio,price_momentum", help="Comma-separated feature names")
-    p_train.add_argument("--horizon", type=int, default=5, help="Forward return prediction horizon in bars")
-    p_train.add_argument("--folds", type=int, default=3, help="Number of walk-forward validation folds")
-    p_train.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
+    p_train = subparsers.add_parser("train", help="Orchestrate canonical Wave 5 supervised training")
+    p_train.add_argument("--name", type=str, default="wave5_supervised_model", help="Identifier name for the run")
+    p_train.add_argument("--code-ref", type=str, default="omega-orchestrator-v1", help="Code reference version")
 
     # replay
-    p_rep = subparsers.add_parser("replay", help="Run a strategy simulation / replay")
-    p_rep.add_argument("--strategy", type=str, default="orderflow_absorption", help="Strategy to simulate")
-    p_rep.add_argument("--features", type=str, default="cvd_zscore,price_momentum,realized_vol", help="Features to compute for strategy")
-    p_rep.add_argument("--capital", type=float, default=10000.0, help="Initial simulation capital")
-    p_rep.add_argument("--bars", type=int, default=1500, help="Number of market bars to simulate")
+    p_rep = subparsers.add_parser("replay", help="Orchestrate canonical Wave 4 deterministic replay")
+    p_rep.add_argument("--dsn", type=str, default="", help="Catalog PostgreSQL DSN (or via GOLDEN_REPLAY_E2E_DSN)")
+    p_rep.add_argument("--start", type=str, default="2024-01-15T00:00:00Z", help="Start timestamp")
+    p_rep.add_argument("--end", type=str, default="2024-01-16T00:00:00Z", help="End timestamp")
+    p_rep.add_argument("--capital", type=int, default=10000, help="Initial capital in base currency")
+    p_rep.add_argument("--lookback", type=int, default=20, help="Lookback window")
+    p_rep.add_argument("--batch-size", type=int, default=65536, help="DataGateway batch size")
 
     # leaderboard
     p_lead = subparsers.add_parser("leaderboard", help="View ranked leaderboard of tracked runs")
-    p_lead.add_argument("--sort-by", type=str, default="dsr", choices=["dsr", "sharpe", "accuracy", "ic"], help="Metric to rank by")
+    p_lead.add_argument("--sort-by", type=str, default="accuracy", choices=["accuracy"], help="Metric to rank by")
     p_lead.add_argument("--limit", type=int, default=10, help="Max runs to display")
 
     # inspect

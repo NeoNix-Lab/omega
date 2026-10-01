@@ -1,18 +1,26 @@
-"""Omega Strategy Hub — Pluggable alpha strategies and signals."""
+"""Canonical Strategy Hub — Directly interfaces with quant_platform.strategy."""
 
-from .base import BaseStrategy, SignalAction, SignalDecision
-from .registry import StrategyDescriptor, get_strategy, list_strategies, register_strategy
+from __future__ import annotations
 
-# Auto-import standard strategies
-from . import breakout as _breakout  # noqa: F401
-from . import orderflow_absorption as _absorption  # noqa: F401
+from typing import Any
 
-__all__ = [
-    "BaseStrategy",
-    "SignalAction",
-    "SignalDecision",
-    "StrategyDescriptor",
-    "get_strategy",
-    "list_strategies",
-    "register_strategy",
-]
+from quant_platform.application.golden_replay import minimal_breakout_strategy
+from quant_platform.strategy import StrategySpec
+
+
+def list_canonical_strategies() -> list[dict[str, Any]]:
+    """List all canonical strategies and specifications from quant-platform."""
+    breakout = minimal_breakout_strategy()
+    return [
+        {
+            "name": "minimal_breakout",
+            "strategy_identity": breakout.strategy_identity,
+            "sizing_policy": breakout.sizing_policy.identity,
+            "risk_policy": breakout.risk_policy.identity,
+            "session_policy": breakout.session_policy.identity,
+            "description": "Canonical Donchian breakout StrategySpec with deterministic policies.",
+        }
+    ]
+
+
+__all__ = ["list_canonical_strategies", "minimal_breakout_strategy", "StrategySpec"]
