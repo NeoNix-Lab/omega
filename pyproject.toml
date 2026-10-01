@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=65.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omega"
+version = "0.1.0"
+description = "Alpha discovery, event research, and strategy experimentation lab for quant-platform."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "NeoNix-Lab" }
+]
+dependencies = [
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "scipy>=1.10.0",
+    "statsmodels>=0.14.0",
+    "scikit-learn>=1.3.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "plotly>=5.15.0",
+    "pyarrow>=12.0.0",
+    "pydantic>=2.0.0",
+    "tqdm>=4.65.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "ruff>=0.1.0",
+    "black>=23.7.0",
+]
+notebooks = [
+    "jupyterlab>=4.0.0",
+    "ipywidgets>=8.0.0",
+]
+ml = [
+    "lightgbm>=4.0.0",
+    "xgboost>=1.7.0",
+    "torch>=2.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
