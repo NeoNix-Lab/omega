@@ -92,6 +92,17 @@ omega replay --capital 10000
 ```
 *(To run against a live PostgreSQL catalog database, supply `--dsn postgresql://user:pass@host/db` or set `GOLDEN_REPLAY_E2E_DSN`).*
 
+### 5b. Smoke-test the platform with your own specs on real catalog data
+Runs Omega feature/strategy specs through the platform's `DataGateway` and `HistoricalReplayRuntime` (tick level, fees as parameters) and prints identities, outcome and timing. Needs one published `trade-v1` day in the catalog (materialize it with the platform's `conformity_e2e`, see `docs/integration/HUMAN_GOLDEN_E2E_BYBIT_BTCUSDT_2024-01-15.md` in quant-platform) and an editable platform checkout:
+```bash
+python scripts/smoke_replay.py --dsn "$OMEGA_CATALOG_DSN" \
+  --start 2024-01-15T00:00:00Z --end 2024-01-16T00:00:00Z \
+  --features studies/specs/features/momentum_1m_5.yaml \
+  --strategy studies/specs/strategies/volatility_breakout_long.yaml \
+  --taker-fee 0.00055 --twice
+```
+Without `--maker-fee`/`--taker-fee` the platform defaults apply (cited source: none). `--twice` replays again and compares identities. Output is mechanics only, never an alpha claim; anything that breaks is a platform finding for the upstream-asks issue.
+
 ### 6. View Ranked Leaderboard of Tracked Runs
 ```bash
 omega leaderboard

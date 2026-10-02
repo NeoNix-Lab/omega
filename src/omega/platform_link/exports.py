@@ -11,6 +11,8 @@ PLATFORM_SYMBOLS: dict[str, str] = {
     # Data access
     "DataGateway": "quant_platform.access",
     "Catalog": "quant_platform.access",
+    "BYBIT_ORDERING_PROVIDER": "quant_platform.source_adapters.bybit",
+    "BYBIT_TRADE_V1_ORDERING_POLICY": "quant_platform.source_adapters.bybit",
     "DataRequest": "quant_platform.access",
     "CoveragePolicy": "quant_platform.access",
     "LifecyclePolicy": "quant_platform.access",
