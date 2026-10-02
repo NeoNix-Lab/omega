@@ -1,0 +1,14 @@
+schema: omega.strategy-spec/v1
+name: volatility_breakout_short
+version: 1
+# Port of the legacy `volatility_breakout` (short side).
+features: [momentum_1m_5]
+entry:
+  direction: short
+  rules:
+    - {feature: momentum_1m_5, op: "<", value: "-0.003"}
+exit:
+  take_profit_pct: "2.0"
+  stop_loss_pct: "0.8"
+position: {size: "0.01"}
+sizing: {lot_size: "0.001", min_size: "0.001"}
